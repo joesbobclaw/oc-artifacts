@@ -2,11 +2,35 @@
 /**
  * Plugin Name: OC Artifacts
  * Description: Custom post type for OpenClaw-deployed HTML/CSS/JS apps
- * Version: 0.1.0
+ * Version: 0.2.0
  * Author: Bob (via OpenClaw)
  */
 
 if (!defined('ABSPATH')) exit;
+
+// Register custom capabilities on activation
+register_activation_hook(__FILE__, function() {
+    // Add artifact capabilities to Administrator role only
+    $admin = get_role('administrator');
+    if ($admin) {
+        $admin->add_cap('edit_artifacts');
+        $admin->add_cap('edit_others_artifacts');
+        $admin->add_cap('publish_artifacts');
+        $admin->add_cap('read_private_artifacts');
+        $admin->add_cap('delete_artifacts');
+        $admin->add_cap('delete_others_artifacts');
+        $admin->add_cap('edit_published_artifacts');
+        $admin->add_cap('delete_published_artifacts');
+    }
+    
+    // Flush rewrite rules
+    flush_rewrite_rules();
+});
+
+// Clean up on deactivation
+register_deactivation_hook(__FILE__, function() {
+    flush_rewrite_rules();
+});
 
 // Register the Artifact post type
 add_action('init', function() {
@@ -17,6 +41,8 @@ add_action('init', function() {
             'add_new' => 'Add New Artifact',
             'edit_item' => 'Edit Artifact',
             'view_item' => 'View Artifact',
+            'all_items' => 'All Artifacts',
+            'not_found' => 'No artifacts found',
         ],
         'public' => true,
         'show_in_rest' => true,
@@ -24,8 +50,23 @@ add_action('init', function() {
         'supports' => ['title', 'custom-fields'],
         'has_archive' => true,
         'rewrite' => ['slug' => 'artifacts'],
-        'capability_type' => 'post',  // POC: use post caps. Harden later.
         'menu_icon' => 'dashicons-art',
+        // Custom capabilities - only roles with these caps can manage artifacts
+        'capability_type' => 'artifact',
+        'map_meta_cap' => true,
+        'capabilities' => [
+            'edit_post' => 'edit_artifact',
+            'read_post' => 'read_artifact',
+            'delete_post' => 'delete_artifact',
+            'edit_posts' => 'edit_artifacts',
+            'edit_others_posts' => 'edit_others_artifacts',
+            'publish_posts' => 'publish_artifacts',
+            'read_private_posts' => 'read_private_artifacts',
+            'delete_posts' => 'delete_artifacts',
+            'delete_others_posts' => 'delete_others_artifacts',
+            'edit_published_posts' => 'edit_published_artifacts',
+            'delete_published_posts' => 'delete_published_artifacts',
+        ],
     ]);
 
     // Register meta field for raw HTML (no sanitization)
@@ -34,7 +75,7 @@ add_action('init', function() {
         'single' => true,
         'show_in_rest' => true,
         'auth_callback' => function() {
-            return current_user_can('edit_posts');
+            return current_user_can('edit_artifacts');
         },
     ]);
 
@@ -49,23 +90,39 @@ add_action('init', function() {
 // Template override for single artifacts - render raw HTML
 add_filter('template_include', function($template) {
     if (is_singular('artifact')) {
-        // Check for custom template in theme first
         $custom = locate_template('single-artifact.php');
         if ($custom) return $custom;
-        
-        // Otherwise use our built-in renderer
         return plugin_dir_path(__FILE__) . 'single-artifact.php';
     }
     return $template;
 });
 
-// Add admin notice with instructions
+// Admin notice with security warning
 add_action('admin_notices', function() {
     $screen = get_current_screen();
     if ($screen && $screen->post_type === 'artifact') {
-        echo '<div class="notice notice-info"><p>';
-        echo '<strong>OC Artifacts:</strong> Add your HTML/CSS/JS app via the REST API. ';
-        echo 'POST to <code>/wp-json/wp/v2/artifacts</code> with <code>title</code> and <code>meta.artifact_html</code>.';
+        echo '<div class="notice notice-warning"><p>';
+        echo '<strong>⚠️ Security Note:</strong> Artifacts execute raw HTML/JS. ';
+        echo 'Only Administrators can create artifacts by default. ';
+        echo 'Use <code>oc_artifacts_allowed_roles</code> filter to modify.';
         echo '</p></div>';
     }
 });
+
+// Helper function to grant artifact capabilities to additional roles
+function oc_artifacts_grant_to_role($role_name) {
+    $role = get_role($role_name);
+    if ($role) {
+        $role->add_cap('edit_artifacts');
+        $role->add_cap('edit_others_artifacts');
+        $role->add_cap('publish_artifacts');
+        $role->add_cap('read_private_artifacts');
+        $role->add_cap('delete_artifacts');
+        $role->add_cap('delete_others_artifacts');
+        $role->add_cap('edit_published_artifacts');
+        $role->add_cap('delete_published_artifacts');
+    }
+}
+
+// Example: To also allow Editors, add this to your theme's functions.php:
+// oc_artifacts_grant_to_role('editor');

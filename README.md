@@ -77,9 +77,21 @@ All artifacts are served at: `https://your-site.com/artifacts/[slug]/`
 
 Archive page: `https://your-site.com/artifacts/`
 
-## Security Considerations
+## Security
 
-⚠️ **This plugin allows raw HTML/JS execution.** Only users who can edit posts can create artifacts. Consider these hardening steps for production:
+⚠️ **This plugin allows raw HTML/JS execution.**
+
+**By default, only Administrators can create artifacts.** This is enforced via custom capabilities.
+
+### Grant access to other roles
+
+To allow Editors to create artifacts, add to your theme's `functions.php`:
+
+```php
+oc_artifacts_grant_to_role('editor');
+```
+
+### Additional hardening steps for production:
 
 1. **Subdomain isolation** — Serve artifacts from a subdomain (e.g., `artifacts.your-site.com`) to isolate cookies/sessions from your main site
 
