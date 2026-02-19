@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OC Artifacts
  * Description: Custom post type for OpenClaw-deployed HTML/CSS/JS apps
- * Version: 0.2.0
+ * Version: 0.3.0
  * Author: Bob (via OpenClaw)
  */
 
